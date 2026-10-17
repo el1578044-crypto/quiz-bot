@@ -100,7 +100,28 @@ async def answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(
             qd.result_message(answers), reply_markup=result_keyboard()
         )
+        await notify_owner(context, update.effective_user, answers)
         context.user_data.pop("answers", None)
+
+
+async def notify_owner(context, user, answers):
+    """Присылает владельцу сообщение о пройденном квизе (если задан OWNER_ID)."""
+    owner_id = os.environ.get("OWNER_ID")
+    if not owner_id:
+        return
+    name = user.full_name or "без имени"
+    contact = f"@{user.username}" if user.username else f"tg://user?id={user.id}"
+    title, _ = qd.RESULTS[qd.pick_result(answers)]
+    text = (
+        f"Новый квиз пройден\n\n"
+        f"Кто: {name} ({contact})\n"
+        f"Результат: {title}\n\n"
+        f"Ответы:\n{qd.summary(answers)}"
+    )
+    try:
+        await context.bot.send_message(chat_id=int(owner_id), text=text)
+    except Exception:
+        log.exception("Не удалось отправить уведомление владельцу")
 
 
 def main():
